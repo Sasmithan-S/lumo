@@ -67,10 +67,10 @@ function setup_() {
     }
   });
 
-  seedAccount_(book.getSheetByName(CONFIG.sheets.accounts), {
+  ensureAccount_(book.getSheetByName(CONFIG.sheets.accounts), {
     name: 'Admin Lumo', username: 'admin', role: 'admin', rateCents: 100, active: true
   });
-  seedAccount_(book.getSheetByName(CONFIG.sheets.accounts), {
+  ensureAccount_(book.getSheetByName(CONFIG.sheets.accounts), {
     name: 'joys', username: 'joys', role: 'seller', rateCents: 100, active: true
   });
 
@@ -87,6 +87,24 @@ function seedAccount_(sheet, account) {
   const nameColumn = headers.indexOf('name');
   if (rows.slice(1).some(row => String(row[nameColumn]) === account.name)) return;
   sheet.appendRow(headers.map(header => account[header] === undefined ? '' : account[header]));
+}
+
+function ensureAccount_(sheet, account) {
+  const headers = headers_(sheet);
+  const rows = sheet.getDataRange().getValues();
+  const nameColumn = headers.indexOf('name');
+  const usernameColumn = headers.indexOf('username');
+  const existingIndex = rows.findIndex((row, index) => index > 0 && (String(row[nameColumn]).trim() === account.name || String(row[usernameColumn]).trim().toLowerCase() === account.username.toLowerCase()));
+  if (existingIndex === -1) {
+    sheet.appendRow(headers.map(header => account[header] === undefined ? '' : account[header]));
+    return;
+  }
+  const rowNumber = existingIndex + 1;
+  headers.forEach((header, columnIndex) => {
+    if (account[header] !== undefined && (sheet.getRange(rowNumber, columnIndex + 1).getValue() === '' || header === 'username' || header === 'role')) {
+      sheet.getRange(rowNumber, columnIndex + 1).setValue(account[header]);
+    }
+  });
 }
 
 function setInitialPasswords_() {
