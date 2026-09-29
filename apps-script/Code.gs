@@ -122,6 +122,43 @@ function installAccounts() {
   return 'OK : Lumo_Accounts installé avec admin et joys';
 }
 
+function installAccountsSimple() {
+  const book = SpreadsheetApp.openById('1xJePHU-coBR_L-p0PwrjS-PbGgAXfo4lrlHzayZSS_s');
+  const sheet = book.getSheetByName('Lumo_Accounts') || book.insertSheet('Lumo_Accounts');
+  const headers = ['name', 'role', 'rateCents', 'passwordHash', 'email', 'username', 'active'];
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  const existing = sheet.getDataRange().getValues();
+  const wanted = [
+    ['Admin Lumo', 'admin', 100, '', '', 'admin', true],
+    ['joys', 'seller', 100, '', '', 'joys', true]
+  ];
+  wanted.forEach(account => {
+    const row = existing.findIndex((values, index) => index > 0 && String(values[0]).trim() === account[0]);
+    if (row < 0) sheet.appendRow(account);
+    else {
+      const passwordHash = existing[row][3] || '';
+      sheet.getRange(row + 1, 1, 1, 7).setValues([[account[0], account[1], account[2], passwordHash, '', account[5], true]]);
+    }
+  });
+  return 'COMPTES OK';
+}
+
+function setPasswordsSimple() {
+  const adminPassword = 'CHANGE_ADMIN_PASSWORD';
+  const joysPassword = 'CHANGE_JOYS_PASSWORD';
+  if (adminPassword.indexOf('CHANGE_') === 0 || joysPassword.indexOf('CHANGE_') === 0) {
+    throw new Error('Modifie adminPassword et joysPassword dans cette fonction avant de relancer.');
+  }
+  const sheet = SpreadsheetApp.openById('1xJePHU-coBR_L-p0PwrjS-PbGgAXfo4lrlHzayZSS_s').getSheetByName('Lumo_Accounts');
+  const rows = sheet.getDataRange().getValues();
+  rows.forEach((row, index) => {
+    if (index === 0) return;
+    if (row[5] === 'admin') sheet.getRange(index + 1, 4).setValue(hashPassword_(adminPassword));
+    if (row[5] === 'joys') sheet.getRange(index + 1, 4).setValue(hashPassword_(joysPassword));
+  });
+  return 'MOTS DE PASSE OK';
+}
+
 function seedAccount_(sheet, account) {
   const headers = headers_(sheet);
   const rows = sheet.getDataRange().getValues();
