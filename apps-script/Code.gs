@@ -104,6 +104,24 @@ function diagnoseAccounts() {
   };
 }
 
+function installAccounts() {
+  const book = SpreadsheetApp.openById('1xJePHU-coBR_L-p0PwrjS-PbGgAXfo4lrlHzayZSS_s');
+  const sheet = book.getSheetByName('Lumo_Accounts') || book.insertSheet('Lumo_Accounts');
+  const headers = ['name', 'role', 'rateCents', 'passwordHash', 'email', 'username', 'active'];
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  const rows = sheet.getDataRange().getValues();
+  const accounts = [
+    ['Admin Lumo', 'admin', 100, '', '', 'admin', true],
+    ['joys', 'seller', 100, '', '', 'joys', true]
+  ];
+  accounts.forEach(account => {
+    const rowIndex = rows.findIndex((row, index) => index > 0 && (String(row[0]).trim() === account[0] || String(row[5]).trim() === account[5]));
+    if (rowIndex === -1) sheet.appendRow(account);
+    else sheet.getRange(rowIndex + 1, 1, 1, account.length).setValues([account.map((value, column) => column === 3 && rows[rowIndex][3] ? rows[rowIndex][3] : value)]);
+  });
+  return 'OK : Lumo_Accounts installé avec admin et joys';
+}
+
 function seedAccount_(sheet, account) {
   const headers = headers_(sheet);
   const rows = sheet.getDataRange().getValues();
