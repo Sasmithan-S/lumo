@@ -2,6 +2,9 @@ const CONFIG = {
   spreadsheetId: '1xJePHU-coBR_L-p0PwrjS-PbGgAXfo4lrlHzayZSS_s',
   sheets: {
     sales: 'Lumo_Sales',
+    trends: 'Ventes - Lumo Trends',
+    shop: 'Ventes - Lumo Shop',
+    orderStatus: 'Lumo_OrderStatus',
     accounts: 'Lumo_Accounts',
     products: 'Lumo_Products',
     config: 'Lumo_Config'
@@ -40,14 +43,10 @@ function doPost(event) {
 function setup_() {
   const book = SpreadsheetApp.openById(CONFIG.spreadsheetId);
   const definitions = {
-    [CONFIG.sheets.sales]: [
-      'id', 'createdAt', 'saleDate', 'buyer', 'seller', 'shop', 'productsJson',
-      'priceCents', 'verified', 'receiptUrl', 'payRateCents', 'payCents',
-      'costCents', 'feeCents', 'status', 'packedAt', 'cancelledAt'
-    ],
     [CONFIG.sheets.accounts]: ['name', 'role', 'rateCents', 'active'],
     [CONFIG.sheets.products]: ['name', 'abbr', 'costCents', 'stock', 'active'],
-    [CONFIG.sheets.config]: ['key', 'value']
+    [CONFIG.sheets.config]: ['key', 'value'],
+    [CONFIG.sheets.orderStatus]: ['id', 'sheetName', 'rowNumber', 'status', 'packedAt', 'cancelledAt']
   };
 
   Object.keys(definitions).forEach(name => {
@@ -71,8 +70,8 @@ function health_() {
 }
 
 function list_(params) {
-  const sheet = sheet_(CONFIG.sheets.sales);
-  const rows = readRows_(sheet);
+  const statusRows = readRows_(sheet_(CONFIG.sheets.orderStatus));
+  const rows = [CONFIG.sheets.trends, CONFIG.sheets.shop].flatMap(name => readExistingSales_(sheet_(name), name, statusRows));
   const seller = params.seller || '';
   return { ok: true, sales: rows.filter(row => !seller || row.seller === seller) };
 }
@@ -81,34 +80,16 @@ function createSale_(body) {
   if (!body.id || !body.seller || !body.buyer || !body.products) {
     throw new Error('Vente incomplète.');
   }
-  const sheet = sheet_(CONFIG.sheets.sales);
+  const sheet = sheet_(body.shop === 'Lumo Shop' ? CONFIG.sheets.shop : CONFIG.sheets.trends);
   const products = typeof body.products === 'string' ? body.products : JSON.stringify(body.products);
-  const row = {
-    id: body.id,
-    createdAt: new Date().toISOString(),
-    saleDate: body.date || new Date().toISOString(),
-    buyer: body.buyer,
-    seller: body.seller,
-    shop: body.shop || '',
-    productsJson: products,
-    priceCents: Number(body.priceCents || 0),
-    verified: Boolean(body.verified),
-    receiptUrl: body.receiptUrl || '',
-    payRateCents: Number(body.payRateCents || 0),
-    payCents: Number(body.payCents || 0),
-    costCents: Number(body.costCents || 0),
-    feeCents: Number(body.feeCents || 0),
-    status: 'pending',
-    packedAt: '',
-    cancelledAt: ''
-  };
-  appendObject_(sheet, row);
+  const row = appendExistingSale_(sheet, body, products);
+  appendObject_(sheet_(CONFIG.sheets.orderStatus), {id: body.id, sheetName: sheet.getName(), rowNumber: sheet.getLastRow(), status: 'pending', packedAt: '', cancelledAt: ''});
   return { ok: true, sale: row };
 }
 
 function setStatus_(body, status) {
   if (!body.id) throw new Error('Identifiant de vente manquant.');
-  const sheet = sheet_(CONFIG.sheets.sales);
+  const sheet = sheet_(CONFIG.sheets.orderStatus);
   const headers = headers_(sheet);
   const idColumn = headers.indexOf('id') + 1;
   const statusColumn = headers.indexOf('status') + 1;
@@ -119,10 +100,29 @@ function setStatus_(body, status) {
     if (String(values[index][idColumn - 1]) === String(body.id)) {
       sheet.getRange(index + 1, statusColumn).setValue(status);
       sheet.getRange(index + 1, timestampColumn).setValue(new Date().toISOString());
+      if (status === 'cancelled') {
+        const sourceName = values[index][headers.indexOf('sheetName')];
+        const sourceRow = Number(values[index][headers.indexOf('rowNumber')]);
+        sheet_(sourceName).deleteRow(sourceRow);
+        adjustStatusRows_(sheet, sourceName, sourceRow, body.id);
+      }
       return { ok: true, id: body.id, status: status };
     }
   }
   throw new Error('Vente introuvable.');
+}
+
+function adjustStatusRows_(sheet, sourceName, deletedRow, deletedId) {
+  const headers = headers_(sheet);
+  const values = sheet.getDataRange().getValues();
+  const idColumn = headers.indexOf('id');
+  const sheetColumn = headers.indexOf('sheetName');
+  const rowColumn = headers.indexOf('rowNumber');
+  for (let index = 1; index < values.length; index += 1) {
+    if (String(values[index][sheetColumn]) === String(sourceName) && Number(values[index][rowColumn]) > deletedRow && String(values[index][idColumn]) !== String(deletedId)) {
+      sheet.getRange(index + 1, rowColumn + 1).setValue(Number(values[index][rowColumn]) - 1);
+    }
+  }
 }
 
 function setRoles_(body) {
@@ -178,6 +178,59 @@ function readRows_(sheet) {
 function appendObject_(sheet, object) {
   const headers = headers_(sheet);
   sheet.appendRow(headers.map(header => object[header] === undefined ? '' : object[header]));
+}
+
+function appendExistingSale_(sheet, body, productsJson) {
+  const quantities = typeof body.products === 'string' ? JSON.parse(body.products) : body.products;
+  const values = {
+    'Date': body.date || new Date().toISOString(),
+    'Vendeur': body.seller,
+    'Acheteur (pseudo)': body.buyer,
+    'Qté Velvet Kiss': quantities['Velvet Kiss'] || 0,
+    'Qté Sublime Satin': quantities['Sublime Satin'] || 0,
+    'Qté Cotton Bloom': quantities['Cotton Bloom'] || 0,
+    'Qté Cashmere Whisper': quantities['Cashmere Whisper'] || 0,
+    'Qté Eternal Silk': quantities['Eternal Silk'] || 0,
+    'Qté Sweet Tweed': quantities['Sweet Tweed'] || 0,
+    'Prix de vente (€)': Number(body.priceCents || 0) / 100,
+    'Vérifié': body.verified ? 'Oui' : '',
+    "Coût d'achat (€)": Number(body.costCents || 0) / 100,
+    'Frais par article (€)': Number(body.feeCents || 0) / 100,
+    'Lien bordereau': body.receiptUrl || ''
+  };
+  const headers = headers_(sheet);
+  sheet.appendRow(headers.map(header => values[header] === undefined ? '' : values[header]));
+  return {id: body.id, sheetName: sheet.getName(), rowNumber: sheet.getLastRow(), ...values, productsJson: productsJson};
+}
+
+function readExistingSales_(sheet, sheetName, statusRows) {
+  const headers = headers_(sheet);
+  const rows = sheet.getDataRange().getValues().slice(1);
+  return rows.map((values, offset) => {
+    const row = headers.reduce((result, header, index) => { result[header] = values[index]; return result; }, {});
+    const status = statusRows.find(item => item.sheetName === sheetName && Number(item.rowNumber) === offset + 2);
+    const products = {
+      'Velvet Kiss': Number(row['Qté Velvet Kiss'] || 0),
+      'Sublime Satin': Number(row['Qté Sublime Satin'] || 0),
+      'Cotton Bloom': Number(row['Qté Cotton Bloom'] || 0),
+      'Cashmere Whisper': Number(row['Qté Cashmere Whisper'] || 0),
+      'Eternal Silk': Number(row['Qté Eternal Silk'] || 0),
+      'Sweet Tweed': Number(row['Qté Sweet Tweed'] || 0)
+    };
+    return {
+      id: status ? status.id : sheetName + '-' + (offset + 2),
+      date: row.Date,
+      seller: row.Vendeur,
+      buyer: row['Acheteur (pseudo)'],
+      shop: sheetName === CONFIG.sheets.shop ? 'Lumo Shop' : 'Lumo Trends',
+      products: products,
+      price: Number(String(row['Prix de vente (€)'] || 0).replace(',', '.')),
+      verified: row.Vérifié === 'Oui' || row.Vérifié === true,
+      status: status ? status.status : 'pending',
+      packed: status ? status.status === 'packed' : false,
+      payCents: 0
+    };
+  });
 }
 
 function json_(payload) {
