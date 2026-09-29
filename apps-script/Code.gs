@@ -58,7 +58,7 @@ function setup_() {
       sheet.setFrozenRows(1);
     }
     if (name === CONFIG.sheets.accounts) {
-      ['email', 'username', 'passwordHash'].forEach(column => {
+      ['email', 'username', 'passwordHash', 'active'].forEach(column => {
         if (headers_(sheet).indexOf(column) === -1) {
           sheet.insertColumnAfter(sheet.getLastColumn());
           sheet.getRange(1, sheet.getLastColumn()).setValue(column);
