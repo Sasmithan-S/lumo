@@ -105,7 +105,7 @@ function diagnoseAccounts() {
 }
 
 function installAccounts() {
-  const book = SpreadsheetApp.openById('1xJePHU-coBR_L-p0PwrjS-PbGgAXfo4lrlHzayZSS_s');
+  const book = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = book.getSheetByName('Lumo_Accounts') || book.insertSheet('Lumo_Accounts');
   const headers = ['name', 'role', 'rateCents', 'passwordHash', 'email', 'username', 'active'];
   sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
@@ -123,7 +123,7 @@ function installAccounts() {
 }
 
 function installAccountsSimple() {
-  const book = SpreadsheetApp.openById('1xJePHU-coBR_L-p0PwrjS-PbGgAXfo4lrlHzayZSS_s');
+  const book = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = book.getSheetByName('Lumo_Accounts') || book.insertSheet('Lumo_Accounts');
   const headers = ['name', 'role', 'rateCents', 'passwordHash', 'email', 'username', 'active'];
   sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
@@ -149,7 +149,7 @@ function setPasswordsSimple() {
   if (adminPassword.indexOf('CHANGE_') === 0 || joysPassword.indexOf('CHANGE_') === 0) {
     throw new Error('Modifie adminPassword et joysPassword dans cette fonction avant de relancer.');
   }
-  const sheet = SpreadsheetApp.openById('1xJePHU-coBR_L-p0PwrjS-PbGgAXfo4lrlHzayZSS_s').getSheetByName('Lumo_Accounts');
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Lumo_Accounts');
   const rows = sheet.getDataRange().getValues();
   rows.forEach((row, index) => {
     if (index === 0) return;
