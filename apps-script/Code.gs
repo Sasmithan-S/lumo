@@ -91,6 +91,19 @@ function repairAccounts() {
   return {ok: true, message: 'Lumo_Accounts réparé. Exécute maintenant setInitialPasswords.'};
 }
 
+function diagnoseAccounts() {
+  const book = SpreadsheetApp.openById(CONFIG.spreadsheetId);
+  const sheet = book.getSheetByName(CONFIG.sheets.accounts);
+  if (!sheet) throw new Error('Onglet introuvable : ' + CONFIG.sheets.accounts);
+  return {
+    ok: true,
+    sheet: sheet.getName(),
+    lastRow: sheet.getLastRow(),
+    lastColumn: sheet.getLastColumn(),
+    headers: sheet.getLastColumn() ? headers_(sheet) : []
+  };
+}
+
 function seedAccount_(sheet, account) {
   const headers = headers_(sheet);
   const rows = sheet.getDataRange().getValues();
