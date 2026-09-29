@@ -20,5 +20,5 @@
 
   window.LumoAuth = JSON.parse(sessionStorage.getItem('lumo-auth') || 'null');
   window.LumoLogin = {show: showLogin, enabled: true};
-  if (!window.LumoAuth) showLogin('');
+  if (config.authRequired && !window.LumoAuth) showLogin('');
 })();
