@@ -26,6 +26,8 @@ Les changements locaux ne modifient pas automatiquement le site en ligne. Un dé
 - Google Apps Script sert de passerelle vers le Google Sheet sans exposer les identifiants Google dans le navigateur.
 - Le compte Google propriétaire doit exécuter et autoriser Apps Script.
 
+Le frontend est actuellement publié sur [lumo-2cu.pages.dev](https://lumo-2cu.pages.dev) via Cloudflare Pages.
+
 Cette base ne doit pas encore être annoncée comme une version connectée : les colonnes du Sheet, les formules `Bénéfice R` / `Bénéfice N` et la vraie authentification des vendeurs doivent être confirmées avant de brancher les écritures et les lectures métier.
 
 ## Finalisation du déploiement
