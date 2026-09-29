@@ -77,6 +77,10 @@ function setup_() {
   return { ok: true, message: 'Onglets Lumo créés ou conservés.' };
 }
 
+function setup() {
+  return setup_();
+}
+
 function seedAccount_(sheet, account) {
   const headers = headers_(sheet);
   const rows = sheet.getDataRange().getValues();
@@ -88,6 +92,10 @@ function seedAccount_(sheet, account) {
 function setInitialPasswords_() {
   setPassword_('admin', 'CHANGE_ADMIN_PASSWORD');
   setPassword_('joys', 'CHANGE_JOYS_PASSWORD');
+}
+
+function setInitialPasswords() {
+  return setInitialPasswords_();
 }
 
 function setPassword_(username, password) {
