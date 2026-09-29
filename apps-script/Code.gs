@@ -57,7 +57,22 @@ function setup_() {
     }
   });
 
+  seedAccount_(book.getSheetByName(CONFIG.sheets.accounts), {
+    name: 'Admin Lumo', role: 'admin', rateCents: 100, active: true
+  });
+  seedAccount_(book.getSheetByName(CONFIG.sheets.accounts), {
+    name: 'joys', role: 'seller', rateCents: 100, active: true
+  });
+
   return { ok: true, message: 'Onglets Lumo créés ou conservés.' };
+}
+
+function seedAccount_(sheet, account) {
+  const headers = headers_(sheet);
+  const rows = sheet.getDataRange().getValues();
+  const nameColumn = headers.indexOf('name');
+  if (rows.slice(1).some(row => String(row[nameColumn]) === account.name)) return;
+  sheet.appendRow(headers.map(header => account[header] === undefined ? '' : account[header]));
 }
 
 function health_() {
