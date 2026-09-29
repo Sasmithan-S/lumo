@@ -28,11 +28,12 @@ function doPost(event) {
     switch (body.action) {
       case 'setup': return json_(setup_());
       case 'health': return json_(health_());
-      case 'create': return json_(createSale_(body));
-      case 'pack': return json_(setStatus_(body, 'packed'));
-      case 'cancel': return json_(setStatus_(body, 'cancelled'));
-      case 'roles': return json_(setRoles_(body));
-      case 'rate': return json_(setRate_(body));
+      case 'auth': return json_(authenticate_(body));
+      case 'create': requireAuth_(body); return json_(createSale_(body));
+      case 'pack': requireAuth_(body); return json_(setStatus_(body, 'packed'));
+      case 'cancel': requireAuth_(body); return json_(setStatus_(body, 'cancelled'));
+      case 'roles': requireAuth_(body); return json_(setRoles_(body));
+      case 'rate': requireAuth_(body); return json_(setRate_(body));
       default: return json_({ ok: false, error: 'Action inconnue.' });
     }
   } catch (error) {
@@ -43,7 +44,7 @@ function doPost(event) {
 function setup_() {
   const book = SpreadsheetApp.openById(CONFIG.spreadsheetId);
   const definitions = {
-    [CONFIG.sheets.accounts]: ['name', 'role', 'rateCents', 'active'],
+    [CONFIG.sheets.accounts]: ['name', 'email', 'role', 'rateCents', 'active'],
     [CONFIG.sheets.products]: ['name', 'abbr', 'costCents', 'stock', 'active'],
     [CONFIG.sheets.config]: ['key', 'value'],
     [CONFIG.sheets.orderStatus]: ['id', 'sheetName', 'rowNumber', 'status', 'packedAt', 'cancelledAt']
@@ -54,6 +55,10 @@ function setup_() {
     if (sheet.getLastRow() === 0) {
       sheet.getRange(1, 1, 1, definitions[name].length).setValues([definitions[name]]);
       sheet.setFrozenRows(1);
+    }
+    if (name === CONFIG.sheets.accounts && headers_(sheet).indexOf('email') === -1) {
+      sheet.insertColumnAfter(1);
+      sheet.getRange(1, 2).setValue('email');
     }
   });
 
@@ -82,6 +87,22 @@ function health_() {
     spreadsheet: book.getName(),
     sheets: Object.keys(CONFIG.sheets).map(key => CONFIG.sheets[key])
   };
+}
+
+function authenticate_(body) {
+  if (!body.token) throw new Error('Jeton Google manquant.');
+  const response = UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(body.token), {muteHttpExceptions: true});
+  if (response.getResponseCode() !== 200) throw new Error('Jeton Google invalide.');
+  const identity = JSON.parse(response.getContentText());
+  const accounts = readRows_(sheet_(CONFIG.sheets.accounts));
+  const account = accounts.find(row => String(row.email || '').toLowerCase() === String(identity.email || '').toLowerCase() && String(row.active).toLowerCase() !== 'false');
+  if (!account) throw new Error('Ce compte Google n’est pas autorisé dans Lumo.');
+  return {ok: true, account: {name: account.name, email: identity.email, roles: String(account.role || 'seller').split(',').filter(Boolean), rateCents: Number(account.rateCents || 0)}};
+}
+
+function requireAuth_(body) {
+  if (!body.token) throw new Error('Connexion Google requise.');
+  return authenticate_({token: body.token});
 }
 
 function list_(params) {
