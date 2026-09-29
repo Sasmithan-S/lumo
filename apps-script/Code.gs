@@ -200,6 +200,14 @@ function appendExistingSale_(sheet, body, productsJson) {
   };
   const headers = headers_(sheet);
   sheet.appendRow(headers.map(header => values[header] === undefined ? '' : values[header]));
+  const newRow = sheet.getLastRow();
+  if (newRow > 2) {
+    sheet.getRange(newRow - 1, 1, 1, sheet.getLastColumn()).copyTo(
+      sheet.getRange(newRow, 1, 1, sheet.getLastColumn()),
+      SpreadsheetApp.CopyPasteType.PASTE_FORMULA,
+      false
+    );
+  }
   return {id: body.id, sheetName: sheet.getName(), rowNumber: sheet.getLastRow(), ...values, productsJson: productsJson};
 }
 
