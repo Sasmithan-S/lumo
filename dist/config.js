@@ -1,6 +1,6 @@
 // Set this after deploying the Apps Script web app.
 window.LUMO_CONFIG = {
-  apiUrl: '',
+  apiUrl: 'https://script.google.com/macros/s/AKfycbyH7mlUc30VDsnWmlRglUbjo-aeJtH_xRf0P6wpOvHjNYKIICPxHAd7zR2dXws9SzJi/exec',
   appVersion: 'sheet-ready',
-  dataMode: 'local-until-api-url'
+  dataMode: 'google-sheets'
 };
