@@ -81,6 +81,16 @@ function setup() {
   return setup_();
 }
 
+function repairAccounts() {
+  const sheet = SpreadsheetApp.openById(CONFIG.spreadsheetId).getSheetByName(CONFIG.sheets.accounts);
+  if (!sheet) throw new Error('Onglet Lumo_Accounts introuvable. Exécute setup d’abord.');
+  const headers = ['name', 'role', 'rateCents', 'passwordHash', 'email', 'username', 'active'];
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  ensureAccount_(sheet, {name: 'Admin Lumo', username: 'admin', role: 'admin', rateCents: 100, active: true});
+  ensureAccount_(sheet, {name: 'joys', username: 'joys', role: 'seller', rateCents: 100, active: true});
+  return {ok: true, message: 'Lumo_Accounts réparé. Exécute maintenant setInitialPasswords.'};
+}
+
 function seedAccount_(sheet, account) {
   const headers = headers_(sheet);
   const rows = sheet.getDataRange().getValues();
