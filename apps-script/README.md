@@ -13,14 +13,14 @@ Ce script prépare une API gratuite pour le Google Sheet Lumo.
 7. Copier l’URL `/exec` du déploiement dans `dist/config.js`, dans `apiUrl`.
 8. Republier `dist/` sur Cloudflare Pages.
 
-## Connexion Google
+## Connexion par identifiant
 
-1. Créer un identifiant OAuth **Web application** dans Google Cloud Console.
-2. Ajouter `https://lumo-2cu.pages.dev` comme origine JavaScript autorisée.
-3. Renseigner cet ID dans `dist/config.js` sous `googleClientId`.
-4. Dans `Lumo_Accounts`, renseigner l’adresse Google de chaque compte dans `email`.
+1. Exécuter `setup_` pour créer `admin` et `joys` si nécessaire.
+2. Remplacer les deux valeurs `CHANGE_...` dans `setInitialPasswords_` par des mots de passe choisis localement.
+3. Exécuter `setInitialPasswords_`, puis supprimer les mots de passe du code Apps Script.
+4. L’admin connecté crée ensuite les autres comptes depuis le panneau **Rémunérations vendeurs**.
 
-Le backend vérifie le jeton auprès de Google et refuse toute écriture sans compte autorisé. Ne jamais mettre un secret client Google dans le frontend : seul l’ID client public y est autorisé.
+Le backend conserve uniquement un hash SHA-256 et des sessions temporaires. Les identifiants doivent être transmis séparément aux utilisateurs, jamais publiés dans Git ou dans le frontend.
 
 Le script crée ou conserve quatre onglets techniques : `Lumo_Sales`, `Lumo_Accounts`, `Lumo_Products` et `Lumo_Config`. Il ne modifie pas les onglets métier existants.
 

@@ -29,6 +29,7 @@ function doPost(event) {
       case 'setup': return json_(setup_());
       case 'health': return json_(health_());
       case 'auth': return json_(authenticate_(body));
+      case 'createAccount': return json_(createAccount_(body));
       case 'create': requireAuth_(body); return json_(createSale_(body));
       case 'pack': requireAuth_(body); return json_(setStatus_(body, 'packed'));
       case 'cancel': requireAuth_(body); return json_(setStatus_(body, 'cancelled'));
@@ -44,7 +45,7 @@ function doPost(event) {
 function setup_() {
   const book = SpreadsheetApp.openById(CONFIG.spreadsheetId);
   const definitions = {
-    [CONFIG.sheets.accounts]: ['name', 'email', 'role', 'rateCents', 'active'],
+    [CONFIG.sheets.accounts]: ['name', 'email', 'username', 'passwordHash', 'role', 'rateCents', 'active'],
     [CONFIG.sheets.products]: ['name', 'abbr', 'costCents', 'stock', 'active'],
     [CONFIG.sheets.config]: ['key', 'value'],
     [CONFIG.sheets.orderStatus]: ['id', 'sheetName', 'rowNumber', 'status', 'packedAt', 'cancelledAt']
@@ -56,17 +57,21 @@ function setup_() {
       sheet.getRange(1, 1, 1, definitions[name].length).setValues([definitions[name]]);
       sheet.setFrozenRows(1);
     }
-    if (name === CONFIG.sheets.accounts && headers_(sheet).indexOf('email') === -1) {
-      sheet.insertColumnAfter(1);
-      sheet.getRange(1, 2).setValue('email');
+    if (name === CONFIG.sheets.accounts) {
+      ['email', 'username', 'passwordHash'].forEach(column => {
+        if (headers_(sheet).indexOf(column) === -1) {
+          sheet.insertColumnAfter(sheet.getLastColumn());
+          sheet.getRange(1, sheet.getLastColumn()).setValue(column);
+        }
+      });
     }
   });
 
   seedAccount_(book.getSheetByName(CONFIG.sheets.accounts), {
-    name: 'Admin Lumo', role: 'admin', rateCents: 100, active: true
+    name: 'Admin Lumo', username: 'admin', role: 'admin', rateCents: 100, active: true
   });
   seedAccount_(book.getSheetByName(CONFIG.sheets.accounts), {
-    name: 'joys', role: 'seller', rateCents: 100, active: true
+    name: 'joys', username: 'joys', role: 'seller', rateCents: 100, active: true
   });
 
   return { ok: true, message: 'Onglets Lumo créés ou conservés.' };
@@ -80,6 +85,27 @@ function seedAccount_(sheet, account) {
   sheet.appendRow(headers.map(header => account[header] === undefined ? '' : account[header]));
 }
 
+function setInitialPasswords_() {
+  setPassword_('admin', 'CHANGE_ADMIN_PASSWORD');
+  setPassword_('joys', 'CHANGE_JOYS_PASSWORD');
+}
+
+function setPassword_(username, password) {
+  if (!password || password.indexOf('CHANGE_') === 0) throw new Error('Modifie les mots de passe dans setInitialPasswords_ avant exécution.');
+  const sheet = sheet_(CONFIG.sheets.accounts);
+  const headers = headers_(sheet);
+  const rows = sheet.getDataRange().getValues();
+  const usernameColumn = headers.indexOf('username');
+  const passwordColumn = headers.indexOf('passwordHash');
+  for (let index = 1; index < rows.length; index += 1) {
+    if (String(rows[index][usernameColumn]).toLowerCase() === username.toLowerCase()) {
+      sheet.getRange(index + 1, passwordColumn + 1).setValue(hashPassword_(password));
+      return;
+    }
+  }
+  throw new Error('Compte introuvable : ' + username);
+}
+
 function health_() {
   const book = SpreadsheetApp.openById(CONFIG.spreadsheetId);
   return {
@@ -90,7 +116,19 @@ function health_() {
 }
 
 function authenticate_(body) {
-  if (!body.token) throw new Error('Jeton Google manquant.');
+  if (body.sessionToken) {
+    const username = CacheService.getScriptCache().get('lumo-session-' + body.sessionToken);
+    if (!username) throw new Error('Session expirée.');
+    return accountResponse_(findAccount_(username));
+  }
+  if (body.username && body.password) {
+    const account = findAccount_(body.username);
+    if (!account || account.passwordHash !== hashPassword_(body.password)) throw new Error('Identifiant ou mot de passe incorrect.');
+    const sessionToken = Utilities.getUuid();
+    CacheService.getScriptCache().put('lumo-session-' + sessionToken, account.username, 21600);
+    return {...accountResponse_(account), sessionToken: sessionToken};
+  }
+  if (!body.token) throw new Error('Connexion requise.');
   const response = UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(body.token), {muteHttpExceptions: true});
   if (response.getResponseCode() !== 200) throw new Error('Jeton Google invalide.');
   const identity = JSON.parse(response.getContentText());
@@ -101,8 +139,31 @@ function authenticate_(body) {
 }
 
 function requireAuth_(body) {
-  if (!body.token) throw new Error('Connexion Google requise.');
-  return authenticate_({token: body.token});
+  return authenticate_(body);
+}
+
+function createAccount_(body) {
+  const creator = requireAuth_(body);
+  if (!String(creator.account.roles || '').split(',').includes('admin')) throw new Error('Action réservée à l’administrateur.');
+  if (!body.username || !body.password || !body.name) throw new Error('Nom, identifiant et mot de passe requis.');
+  const sheet = sheet_(CONFIG.sheets.accounts);
+  if (findAccount_(body.username)) throw new Error('Cet identifiant existe déjà.');
+  appendObject_(sheet, {name: body.name, email: '', username: body.username, passwordHash: hashPassword_(body.password), role: 'seller', rateCents: Number(body.rateCents || 100), active: true});
+  return {ok: true, account: {name: body.name, username: body.username, roles: ['seller'], rateCents: Number(body.rateCents || 100)}};
+}
+
+function findAccount_(username) {
+  return readRows_(sheet_(CONFIG.sheets.accounts)).find(row => String(row.username || '').toLowerCase() === String(username || '').toLowerCase() && String(row.active).toLowerCase() !== 'false');
+}
+
+function hashPassword_(password) {
+  const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, password, Utilities.Charset.UTF_8);
+  return digest.map(byte => (byte < 0 ? byte + 256 : byte).toString(16).padStart(2, '0')).join('');
+}
+
+function accountResponse_(account) {
+  if (!account) throw new Error('Compte introuvable ou désactivé.');
+  return {ok: true, account: {name: account.name, username: account.username, roles: String(account.role || 'seller').split(',').filter(Boolean), rateCents: Number(account.rateCents || 0)}};
 }
 
 function list_(params) {
