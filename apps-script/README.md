@@ -15,4 +15,4 @@ Le script crée ou conserve quatre onglets techniques : `Lumo_Sales`, `Lumo_Acco
 
 ## Important
 
-Le script actuel est une étape d’initialisation et de contrôle (`health`/`setup`). Il ne faut pas publier l’application finale avant d’avoir confirmé les colonnes métier, notamment `Bénéfice R` et `Bénéfice N`, ainsi que la méthode d’authentification des vendeurs.
+Le script actuel est une étape d’initialisation et de contrôle (`health`/`setup`). Les ventes prévoient maintenant les statuts `status`, `packedAt` et `cancelledAt` pour le flux emballeur. Il ne faut pas publier l’application finale avant d’avoir confirmé les colonnes métier, notamment `Bénéfice R` et `Bénéfice N`, ainsi que la méthode d’authentification des vendeurs.

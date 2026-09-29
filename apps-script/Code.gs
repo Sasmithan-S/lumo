@@ -34,7 +34,7 @@ function setup_() {
     [CONFIG.sheets.sales]: [
       'id', 'createdAt', 'saleDate', 'buyer', 'seller', 'shop', 'productsJson',
       'priceCents', 'verified', 'receiptUrl', 'payRateCents', 'payCents',
-      'costCents', 'feeCents'
+      'costCents', 'feeCents', 'status', 'packedAt', 'cancelledAt'
     ],
     [CONFIG.sheets.accounts]: ['name', 'role', 'rateCents', 'active'],
     [CONFIG.sheets.products]: ['name', 'abbr', 'costCents', 'stock', 'active'],
