@@ -26,7 +26,7 @@ function setPasswords() {
 
 function doGet(event) {
   try {
-    if ((event.parameter || {}).action === 'list') return json_({ok: true, sales: []});
+    if ((event.parameter || {}).action === 'list') return json_(listSales_());
     return json_({ok: true, service: 'lumo-api'});
   } catch (error) { return json_({ok: false, error: error.message}); }
 }
@@ -86,6 +86,52 @@ function changeStatus_(id, value) {
   const rows = sheet.getDataRange().getValues();
   for (let i = 1; i < rows.length; i++) if (String(rows[i][0]) === String(id)) { sheet.getRange(i + 1, 4).setValue(value); return {ok: true, id: id, status: value}; }
   throw new Error('Vente introuvable.');
+}
+
+function listSales_() {
+  const book = SpreadsheetApp.getActiveSpreadsheet();
+  const statuses = book.getSheetByName(CONFIG.statuses);
+  const statusRows = statuses ? statuses.getDataRange().getValues().slice(1) : [];
+  const sales = [];
+  [CONFIG.trends, CONFIG.shop].forEach(name => {
+    const sheet = book.getSheetByName(name);
+    if (!sheet) return;
+    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(String);
+    sheet.getDataRange().getValues().slice(1).forEach((values, offset) => {
+      const row = {};
+      headers.forEach((header, index) => { row[header] = values[index]; });
+      const status = statusRows.find(item => item[1] === name && Number(item[2]) === offset + 2);
+      sales.push({
+        id: status ? status[0] : name + '-' + (offset + 2),
+        date: row.Date,
+        seller: row.Vendeur || '',
+        buyer: row['Acheteur (pseudo)'] || '',
+        shop: name === CONFIG.shop ? 'Lumo Shop' : 'Lumo Trends',
+        products: {
+          'Velvet Kiss': Number(row['Qté Velvet Kiss'] || 0),
+          'Sublime Satin': Number(row['Qté Sublime Satin'] || 0),
+          'Cotton Bloom': Number(row['Qté Cotton Bloom'] || 0),
+          'Cashmere Whisper': Number(row['Qté Cashmere Whisper'] || 0),
+          'Eternal Silk': Number(row['Qté Eternal Silk'] || 0),
+          'Sweet Tweed': Number(row['Qté Sweet Tweed'] || 0)
+        },
+        price: parseMoney_(row['Prix de vente (€)']),
+        verified: row.Vérifié === 'Oui' || row.Vérifié === true,
+        packed: status && status[3] === 'packed',
+        status: status ? status[3] : 'pending',
+        payCents: 0,
+        costCents: Math.round(parseMoney_(row["Coût d'achat (€)"]) * 100),
+        feeCents: Math.round(parseMoney_(row['Frais par article (€)']) * 100),
+        link: row['Lien bordereau'] || ''
+      });
+    });
+  });
+  return {ok: true, sales: sales};
+}
+
+function parseMoney_(value) {
+  if (typeof value === 'number') return value;
+  return Number(String(value || '').replace(/[^0-9,.-]/g, '').replace(',', '.')) || 0;
 }
 
 function accounts_() {
