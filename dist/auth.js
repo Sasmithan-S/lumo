@@ -1,5 +1,6 @@
 (function () {
-  const apiUrl = window.LUMO_CONFIG?.apiUrl;
+  const config = window.LUMO_CONFIG || {};
+  const apiUrl = config.apiUrl;
 
   function showLogin(message) {
     if (document.getElementById('lumo-login')) return;
@@ -14,11 +15,12 @@
   function login(username, password) {
     fetch(apiUrl, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify({action:'auth', username, password})})
       .then(response => response.json())
-      .then(result => {if (!result.ok) throw new Error(result.error || 'Connexion refusée.'); const session = {...result.account, sessionToken: result.sessionToken}; sessionStorage.setItem('lumo-auth', JSON.stringify(session)); window.LumoAuth = session; document.getElementById('lumo-login')?.remove(); document.dispatchEvent(new CustomEvent('lumo-authenticated', {detail:session}));})
+      .then(result => {if (!result.ok) throw new Error(result.error || 'Connexion refusée.'); const session = {...result.account, sessionToken: result.sessionToken}; sessionStorage.setItem('lumo-auth', JSON.stringify(session)); window.LumoAuth = session; document.body.classList.add('auth-live'); document.getElementById('lumo-login')?.remove(); document.dispatchEvent(new CustomEvent('lumo-authenticated', {detail:session}));})
       .catch(error => {const field = document.getElementById('lumo-login-error'); if (field) field.textContent = error.message;});
   }
 
   window.LumoAuth = JSON.parse(sessionStorage.getItem('lumo-auth') || 'null');
   window.LumoLogin = {show: showLogin, enabled: true};
+  if (window.LumoAuth) document.body.classList.add('auth-live');
   if (config.authRequired && !window.LumoAuth) showLogin('');
 })();
